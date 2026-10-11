@@ -1,4 +1,3 @@
-// server/models/Towns.js
 module.exports = (sequelize, DataTypes) => {
   const Towns = sequelize.define("Towns", {
     townName: {
@@ -14,6 +13,13 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
   });
+
+  Towns.associate = (models) => {
+    Towns.belongsToMany(models.Design, { 
+      through: 'DesignTowns', 
+      foreignKey: 'townId' 
+    });
+  };
 
   return Towns;
 };

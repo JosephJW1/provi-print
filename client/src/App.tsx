@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from './api/axios';
 import {
   ComposableMap,
   Geographies,
@@ -38,24 +40,22 @@ interface BackendTown {
   updatedAt: string;
 }
 
-// URL to your TopoJSON/GeoJSON file (place this in your public folder)
 const geoUrl = "/ltla2025.geojson"; 
 
-const App: React.FC = () => {
-  // --- State ---
+// ==========================================
+// 1. HOME PAGE (Your Original App Content)
+// ==========================================
+const HomePage: React.FC = () => {
   const [hoveredCity, setHoveredCity] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [townsData, setTownsData] = useState<BackendTown[]>([]);
   
-  // Map zoom and pan state
   const [position, setPosition] = useState({
     coordinates: [-2.5, 54.8] as [number, number],
     zoom: 1
   });
 
-  // --- Fetch Data & Geolocation ---
   useEffect(() => {
-    // Fetch coordinates from our Express/Sequelize backend
     axios.get('http://localhost:3001/towns')
       .then((response) => {
         setTownsData(response.data);
@@ -64,7 +64,6 @@ const App: React.FC = () => {
         console.error("Error fetching towns:", error);
       });
 
-    // Device location zoom
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -74,7 +73,6 @@ const App: React.FC = () => {
           });
         },
         () => {
-          // Fallback location if permission denied
           setPosition({
             coordinates: [-2.5873, 53.3900], 
             zoom: 9
@@ -89,7 +87,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- Hardcoded UI Data ---
   const slides: Slide[] = [
     {
       id: 1,
@@ -111,7 +108,7 @@ const App: React.FC = () => {
       price: '£29.99',
       charities: [
         { name: "Edinburgh Children's Hospital", logo: 'https://placehold.co/60x60/e11d48/ffffff?text=ECH' },
-        { name: 'Edinburgh Food 7Yject', logo: 'https://placehold.co/60x60/e11d48/ffffff?text=EFP' },
+        { name: 'Edinburgh Food Project', logo: 'https://placehold.co/60x60/e11d48/ffffff?text=EFP' },
         { name: 'Streetwork', logo: 'https://placehold.co/60x60/e11d48/ffffff?text=SW' }
       ]
     },
@@ -141,7 +138,6 @@ const App: React.FC = () => {
     }
   ];
 
-  // Store UI data without coordinates
   const cityUIData: CityData[] = [
     { 
       name: 'Edinburgh', color: '#e11d48', 
@@ -168,7 +164,7 @@ const App: React.FC = () => {
       ] 
     },
     {
-      name: 'Warrington', color: '#8b5cf6', // A purple pin
+      name: 'Warrington', color: '#8b5cf6',
       charities: [
         { name: 'Warrington Foodbank', logo: 'https://placehold.co/60x60/8b5cf6/ffffff?text=WF' },
         { name: 'Warrington Youth Zone', logo: 'https://placehold.co/60x60/8b5cf6/ffffff?text=WYZ' },
@@ -177,21 +173,16 @@ const App: React.FC = () => {
     }
   ];
 
-  // Merge the fetched coordinates with our local UI data
   const mergedCities = cityUIData.map(city => {
     const backendData = townsData.find(t => t.townName === city.name);
     return {
       ...city,
-      // Group the ternary statement and cast the entire result as a tuple
       coordinates: (backendData 
         ? [backendData.longitude, backendData.latitude] 
         : [0, 0]) as [number, number]
     };
-  }).filter(city => city.coordinates[0] !== 0); // Only render if we have coordinates
+  }).filter(city => city.coordinates[0] !== 0);
 
-  const navLinks: string[] = ['Home', 'Products', 'Information'];
-
-  // --- Effects & Handlers ---
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prevSlide) => (prevSlide + 1) % slides.length);
@@ -203,45 +194,9 @@ const App: React.FC = () => {
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7] font-sans text-gray-800">
-      
-      {/* Header Section */}
-      <header className="pt-12 pb-6 px-6 text-center shadow-sm bg-white">
-        <h1 className="text-5xl md:text-6xl font-serif font-bold text-gray-900 tracking-tight mb-2">
-          Provi-22222222Prints
-        </h1>
-        <p className="text-xl text-gray-800 font-serif tracking-wide mt-3 mb-5">
-          Providing <span className="text-base text-gray-400 italic font-light mx-1">for your</span> 
-          Province <span className="text-base text-gray-400 italic font-light mx-1">through</span> 
-          Prints
-        </p>
-        
-        {/* Literal Description */}
-        <div className="flex justify-center items-center gap-3 text-[10px] md:text-xs text-gray-400 uppercase tracking-[0.25em] font-semibold">
-           <span className="h-[1px] w-8 md:w-16 bg-gray-200"></span>
-           Vintage-Inspired Travel Posters of the UK
-           <span className="h-[1px] w-8 md:w-16 bg-gray-200"></span>
-        </div>
-      </header>
-
-      {/* Navigation Bar */}
-      <nav className="bg-[#2c3e50] text-white sticky top-0 z-20 shadow-md">
-        <ul className="flex justify-center space-x-8 md:space-x-16 py-4 px-6 text-sm md:text-base uppercase tracking-wider font-semibold">
-          {navLinks.map((link) => (
-            <li key={link}>
-              <button className="hover:text-[#e9c46a] transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-[#e9c46a]">
-                {link}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      {/* Featured Products Slideshow */}
+    <>
       <section className="max-w-6xl mx-auto px-4 py-12">
         <div className="relative overflow-hidden rounded-xl shadow-2xl bg-gray-900 group" style={{ height: '500px' }}>
-          
-          {/* Slides */}
           {slides.map((slide, index) => (
             <div 
               key={slide.id}
@@ -300,7 +255,6 @@ const App: React.FC = () => {
             </div>
           ))}
 
-          {/* Controls */}
           <button 
             onClick={prevSlide}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
@@ -320,7 +274,6 @@ const App: React.FC = () => {
             </svg>
           </button>
 
-          {/* Indicators */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
             {slides.map((_, index) => (
               <button
@@ -334,10 +287,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* Main Content Area (Map and Text) */}
       <main className="max-w-5xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-12 border-t border-gray-200">
-        
-        {/* Text/Info Side */}
         <div className="md:w-1/2 space-y-6 text-center md:text-left">
           <h2 className="text-3xl font-serif font-bold text-gray-800">
             Explore Your Favourite Spots
@@ -349,7 +299,6 @@ const App: React.FC = () => {
             Hover over a pin on the map to see more...
           </p>
           
-          {/* Dynamic display based on hover */}
           <div className="min-h-[160px] mt-8 p-6 bg-white rounded-lg shadow-inner border border-gray-100 flex flex-col items-center justify-center transition-all duration-300">
              {hoveredCity ? (
                <div className="w-full text-center flex flex-col items-center">
@@ -377,7 +326,6 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Map Side */}
         <div className="md:w-1/2 w-full max-w-lg relative flex justify-center">
           <ComposableMap
             projection="geoMercator"
@@ -394,7 +342,6 @@ const App: React.FC = () => {
               center={position.coordinates}
               onMoveEnd={(pos) => setPosition(pos as any)}
             >
-              {/* Render the Map Path */}
               <Geographies geography={geoUrl}>
                 {({ geographies }) =>
                   geographies.map((geo) => (
@@ -416,7 +363,6 @@ const App: React.FC = () => {
                 }
               </Geographies>
 
-              {/* Render the Dynamic Pins */}
               {mergedCities.map((city) => (
                 <Marker 
                   key={city.name} 
@@ -425,22 +371,13 @@ const App: React.FC = () => {
                   onMouseLeave={() => setHoveredCity(null)}
                   className="cursor-pointer group focus:outline-none"
                 >
-                  {/* Wrapper scale inverses the zoom level so pins stay exactly the same visual size */}
                   <g transform={`scale(${1 / position.zoom})`}>
-                    
-                    {/* Transparent expanded hit area for easier hover/click detection. */}
                     <circle cx="0" cy="-28" r="45" fill="transparent" />
-
-                    {/* Added drop-shadow-md here so both the pin body and extended pill cast a shadow seamlessly as one object */}
                     <g className="transition-transform duration-300 ease-out origin-bottom group-hover:scale-125 drop-shadow-md">
-                      
-                      {/* Base Pin Stem */}
                       <path
                         d="M 0 0 C 8 -10 12 -20 12 -28 C 12 -36 6 -40 0 -40 C -6 -40 -12 -36 -12 -28 C -12 -20 -8 -10 0 0 Z"
                         fill={city.color}
                       />
-                      
-                      {/* Seamless curved background pill specifically for the text width. Scaled up for the 50% larger text */}
                       <rect 
                         x="-55" 
                         y="-43" 
@@ -449,8 +386,6 @@ const App: React.FC = () => {
                         rx="15" 
                         fill={city.color} 
                       />
-                      
-                      {/* Text vertically dead center of the extended curved pill, white with bold black outline. Increased font size by 50% */}
                       <text
                         x="0"
                         y="-28" 
@@ -463,7 +398,7 @@ const App: React.FC = () => {
                           stroke: 'black',
                           strokeWidth: '2.5px',
                           strokeLinejoin: 'round',
-                          paintOrder: 'stroke fill', // Ensures the black stroke draws strictly *behind* the white fill
+                          paintOrder: 'stroke fill',
                         }}
                       >
                         {city.name}
@@ -476,7 +411,183 @@ const App: React.FC = () => {
           </ComposableMap>
         </div>
       </main>
+    </>
+  );
+};
+
+// ==========================================
+// 2. AUTH PAGE
+// ==========================================
+interface AuthPageProps {
+  setUser: (email: string) => void;
+}
+
+const AuthPage: React.FC<AuthPageProps> = ({ setUser }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+    
+    try {
+      if (isLoginMode) {
+        const response = await api.post('/auth/login', { email, password });
+        setUser(response.data.email);
+        navigate('/'); 
+      } else {
+        const response = await api.post('/auth/register', { email, password });
+        setMessage(response.data.message);
+        setIsLoginMode(true); 
+      }
+    } catch (error: any) {
+        setMessage(error.response?.data?.error || "An error occurred");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center my-20">
+      <div className="bg-white p-8 rounded-lg shadow-md w-96 border border-gray-100">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          {isLoginMode ? 'Login' : 'Create Account'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-[#2c3e50] text-white p-2 rounded hover:bg-[#e9c46a] hover:text-gray-900 transition-colors font-semibold"
+          >
+            {isLoginMode ? 'Sign In' : 'Register'}
+          </button>
+        </form>
+
+        {message && <p className="mt-4 text-center text-sm text-red-600 font-medium">{message}</p>}
+
+        <p className="mt-4 text-center text-sm text-gray-600">
+          {isLoginMode ? "Don't have an account? " : "Already have an account? "}
+          <button
+            onClick={() => {
+              setIsLoginMode(!isLoginMode);
+              setMessage('');
+            }}
+            className="text-blue-600 hover:underline font-medium"
+          >
+            {isLoginMode ? 'Sign Up' : 'Log In'}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 3. MAIN APP LAYOUT & ROUTER
+// ==========================================
+const App: React.FC = () => {
+  const [user, setUser] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+      setUser(null);
+      navigate('/auth'); 
+    } catch (error) {
+      console.error("Error logging out", error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#fdfbf7] font-sans text-gray-800">
       
+      {/* Header Section */}
+      <header className="pt-12 pb-6 px-6 text-center shadow-sm bg-white">
+        <h1 className="text-5xl md:text-6xl font-serif font-bold text-gray-900 tracking-tight mb-2">
+          Provi-Prints
+        </h1>
+        <p className="text-xl text-gray-800 font-serif tracking-wide mt-3 mb-5">
+          Providing <span className="text-base text-gray-400 italic font-light mx-1">for your</span> 
+          Province <span className="text-base text-gray-400 italic font-light mx-1">through</span> 
+          Prints
+        </p>
+        
+        <div className="flex justify-center items-center gap-3 text-[10px] md:text-xs text-gray-400 uppercase tracking-[0.25em] font-semibold">
+           <span className="h-[1px] w-8 md:w-16 bg-gray-200"></span>
+           Vintage-Inspired Travel Posters of the UK
+           <span className="h-[1px] w-8 md:w-16 bg-gray-200"></span>
+        </div>
+      </header>
+
+      {/* Navigation Bar */}
+      <nav className="bg-[#2c3e50] text-white sticky top-0 z-20 shadow-md">
+        <ul className="flex justify-center items-center space-x-8 md:space-x-16 py-4 px-6 text-sm md:text-base uppercase tracking-wider font-semibold">
+          <li>
+            <Link to="/" className="hover:text-[#e9c46a] transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-[#e9c46a]">
+              Home
+            </Link>
+          </li>
+          <li>
+            <button className="hover:text-[#e9c46a] transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-[#e9c46a]">
+              Products
+            </button>
+          </li>
+          <li>
+            <button className="hover:text-[#e9c46a] transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-[#e9c46a]">
+              Information
+            </button>
+          </li>
+          {user ? (
+            <li>
+              <button 
+                onClick={handleLogout} 
+                className="text-[#e9c46a] hover:text-white transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-white"
+              >
+                Logout
+              </button>
+            </li>
+          ) : (
+            <li>
+              <Link 
+                to="/auth" 
+                className="hover:text-[#e9c46a] transition-colors duration-300 focus:outline-none pb-1 border-b-2 border-transparent hover:border-[#e9c46a]"
+              >
+                Account
+              </Link>
+            </li>
+          )}
+        </ul>
+      </nav>
+
+      {/* Page Routing */}
+      <div className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/auth" element={<AuthPage setUser={setUser} />} />
+        </Routes>
+      </div>
+
       <footer className="bg-gray-100 py-8 text-center text-gray-500 text-sm mt-auto">
         <p>&copy; {new Date().getFullYear()} Provi Prints. All rights reserved.</p>
         <p className="mt-2">Bringing vintage charm to modern walls.</p>
