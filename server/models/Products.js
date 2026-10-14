@@ -11,8 +11,10 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Product.associate = (models) => {
-    // This MUST exactly match the string in the define() block of the other file
-    Product.hasMany(models.ProductVariant, { foreignKey: 'productId' });
+    Product.hasMany(models.ProductVariant, {
+      foreignKey: "productId",
+      onDelete: "CASCADE"
+    });
   };
 
   return Product;

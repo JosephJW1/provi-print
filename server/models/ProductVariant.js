@@ -1,7 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-  // The string "ProductVariant" here is what models.ProductVariant looks for!
   const ProductVariant = sequelize.define("ProductVariant", {
-    size: {
+    description: {
       type: DataTypes.STRING,
       allowNull: false
     },
@@ -12,7 +11,10 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   ProductVariant.associate = (models) => {
-    ProductVariant.belongsTo(models.Product, { foreignKey: 'productId' });
+    ProductVariant.belongsTo(models.Product, {
+      foreignKey: "productId",
+      onDelete: "CASCADE", 
+    });
   };
 
   return ProductVariant;
