@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Native dark scrollbars and form controls when dark mode is active */
+html.dark {
+  color-scheme: dark;
+}
+
+/* Prevent Chrome/Edge/Safari autofill from turning customer inputs bright white */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover,
+html.dark input:-webkit-autofill:focus,
+html.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
+  box-shadow: 0 0 0 1000px #0f172a inset !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #e9c46a !important;
+  border-color: #334155 !important;
+}

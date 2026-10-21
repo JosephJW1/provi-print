@@ -26,14 +26,16 @@ const TownsPage: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Towns Database</h1>
-        <p className="text-slate-500">Read-only view of established coordinates.</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-neutral-100">Towns Database</h1>
+        <p className="text-slate-500 dark:text-neutral-400">
+          Read-only view of established coordinates.
+        </p>
       </div>
 
-      <DataTable 
+      <DataTable
         title="Active Towns"
-        data={towns} 
-        columns={columns} 
+        data={towns}
+        columns={columns}
       />
     </div>
   );

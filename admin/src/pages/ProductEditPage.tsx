@@ -12,7 +12,7 @@ interface ProductVariant {
 const ProductEditPage: React.FC = () => {
   const { id } = useParams(); // If ID exists, we are editing. If undefined, we are creating.
   const navigate = useNavigate();
-  
+
   // Product State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -22,7 +22,7 @@ const ProductEditPage: React.FC = () => {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
-  
+
   // Variant Form State
   const [variantDesc, setVariantDesc] = useState('');
   const [variantPrice, setVariantPrice] = useState<number | ''>('');
@@ -36,7 +36,7 @@ const ProductEditPage: React.FC = () => {
         setName(product.name);
         setDescription(product.description || '');
         // Sequelize includes associated models using the pluralized model name by default
-        setVariants(product.ProductVariants || []); 
+        setVariants(product.ProductVariants || []);
       }
     } catch (err) {
       console.error("Failed to fetch product", err);
@@ -79,12 +79,12 @@ const ProductEditPage: React.FC = () => {
 
   const handleSaveVariant = async () => {
     if (!variantDesc || variantPrice === '') return alert("Please fill out all fields.");
-    
+
     try {
       if (editingVariant) {
-        await api.put(`/variants/${editingVariant.id}`, { 
-          description: variantDesc, 
-          price_pence: Number(variantPrice) 
+        await api.put(`/variants/${editingVariant.id}`, {
+          description: variantDesc,
+          price_pence: Number(variantPrice)
         });
       } else {
         await api.post('/variants/bulk', {
@@ -128,46 +128,53 @@ const ProductEditPage: React.FC = () => {
       {/* Product Details Section */}
       <div>
         <div className="mb-6 flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate('/products')}
-            className="text-slate-500 hover:text-slate-800"
+            className="text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors"
           >
             &larr; Back
           </button>
-          <h1 className="text-2xl font-bold text-slate-800">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-neutral-100">
             {id ? 'Edit Product' : 'Add New Product'}
           </h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-neutral-800 space-y-5 transition-colors"
+        >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Product Name *</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1">
+              Product Name *
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full p-2 bg-white dark:bg-neutral-800 text-slate-900 dark:text-neutral-100 placeholder-slate-400 dark:placeholder-neutral-500 border border-slate-300 dark:border-neutral-700 rounded focus:ring-2 focus:ring-blue-500 dark:focus:ring-neutral-500 outline-none transition-colors"
               placeholder="e.g., Framed Art Print"
               required
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1">
+              Description
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none h-32"
+              className="w-full p-2 bg-white dark:bg-neutral-800 text-slate-900 dark:text-neutral-100 placeholder-slate-400 dark:placeholder-neutral-500 border border-slate-300 dark:border-neutral-700 rounded focus:ring-2 focus:ring-blue-500 dark:focus:ring-neutral-500 outline-none h-32 transition-colors"
               placeholder="Base description of the physical product..."
             />
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
 
-          <div className="flex justify-end pt-4 border-t border-slate-100">
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-neutral-800">
             <button
               type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 font-medium"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-neutral-200 dark:hover:bg-white text-white dark:text-neutral-900 px-6 py-2 rounded font-medium transition-colors"
             >
               {id ? 'Save Changes' : 'Create Product'}
             </button>
@@ -177,10 +184,10 @@ const ProductEditPage: React.FC = () => {
 
       {/* Product Variants Section - Only show if editing an existing product */}
       {id && (
-        <DataTable 
+        <DataTable
           title="Product Variants"
-          data={tableData} 
-          columns={variantColumns} 
+          data={tableData}
+          columns={variantColumns}
           onAdd={() => openVariantModal()}
           onEdit={(variant) => openVariantModal(variant as ProductVariant)}
           onDelete={handleDeleteVariant}
@@ -190,43 +197,47 @@ const ProductEditPage: React.FC = () => {
 
       {/* Variant Modal */}
       {showVariantModal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 rounded-lg shadow-xl w-full max-w-md transition-colors">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-neutral-100 mb-4">
               {editingVariant ? 'Edit Variant' : 'Add Variant'}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1">
+                  Description
+                </label>
                 <input
                   type="text"
                   value={variantDesc}
                   onChange={(e) => setVariantDesc(e.target.value)}
                   placeholder="e.g., A4 Size"
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 bg-white dark:bg-neutral-800 text-slate-900 dark:text-neutral-100 placeholder-slate-400 dark:placeholder-neutral-500 border border-slate-300 dark:border-neutral-700 rounded focus:ring-2 focus:ring-blue-500 dark:focus:ring-neutral-500 outline-none transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Price (in pence)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300 mb-1">
+                  Price (in pence)
+                </label>
                 <input
                   type="number"
                   value={variantPrice}
                   onChange={(e) => setVariantPrice(e.target.value ? Number(e.target.value) : '')}
                   placeholder="e.g., 1500 for £15.00"
-                  className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 bg-white dark:bg-neutral-800 text-slate-900 dark:text-neutral-100 placeholder-slate-400 dark:placeholder-neutral-500 border border-slate-300 dark:border-neutral-700 rounded focus:ring-2 focus:ring-blue-500 dark:focus:ring-neutral-500 outline-none transition-colors"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-neutral-800">
               <button
                 onClick={() => setShowVariantModal(false)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium"
+                className="px-4 py-2 text-slate-600 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveVariant}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-neutral-200 dark:hover:bg-white text-white dark:text-neutral-900 px-4 py-2 rounded font-medium transition-colors"
               >
                 Save Variant
               </button>

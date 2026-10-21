@@ -51,14 +51,16 @@ const ProductsPage: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Products</h1>
-        <p className="text-slate-500">Manage base products (e.g., Framed Art, Canvas).</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-neutral-100">Products</h1>
+        <p className="text-slate-500 dark:text-neutral-400">
+          Manage base products (e.g., Framed Art, Canvas).
+        </p>
       </div>
 
-      <DataTable 
+      <DataTable
         title="Product Inventory"
-        data={products} 
-        columns={columns} 
+        data={products}
+        columns={columns}
         onAdd={() => navigate('/products/new')}
         onEdit={handleEdit}
         onDelete={handleDelete}
