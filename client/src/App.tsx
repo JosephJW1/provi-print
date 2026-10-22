@@ -81,11 +81,11 @@ const App: React.FC = () => {
       
       {/* Header Section */}
       <header className="pt-12 pb-6 px-6 text-center shadow-sm bg-white dark:bg-[#141d2b] border-b border-transparent dark:border-slate-800 transition-colors duration-300">
-        <div className="flex items-center justify-center gap-3 mb-2">
+        <div className="relative inline-flex items-center justify-center mb-2">
           <div
             role="img"
             aria-label="Provi-Prints logo"
-            className="w-11 h-11 md:w-13 md:h-13 shrink-0 bg-gray-900 dark:bg-[#fdfbf7] transition-colors duration-300"
+            className="absolute right-full mr-2.5 md:mr-3 w-11 h-11 md:w-13 md:h-13 shrink-0 bg-gray-900 dark:bg-[#fdfbf7] transition-colors duration-300"
             style={{
               WebkitMaskImage: "url('/logo.svg')",
               maskImage: "url('/logo.svg')",
