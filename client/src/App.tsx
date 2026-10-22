@@ -81,9 +81,26 @@ const App: React.FC = () => {
       
       {/* Header Section */}
       <header className="pt-12 pb-6 px-6 text-center shadow-sm bg-white dark:bg-[#141d2b] border-b border-transparent dark:border-slate-800 transition-colors duration-300">
-        <h1 className="text-5xl md:text-6xl font-serif font-bold text-gray-900 dark:text-[#fdfbf7] tracking-tight mb-2">
-          Provi-Prints
-        </h1>
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <div
+            role="img"
+            aria-label="Provi-Prints logo"
+            className="w-11 h-11 md:w-13 md:h-13 shrink-0 bg-gray-900 dark:bg-[#fdfbf7] transition-colors duration-300"
+            style={{
+              WebkitMaskImage: "url('/logo.svg')",
+              maskImage: "url('/logo.svg')",
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center',
+              maskPosition: 'center',
+              WebkitMaskSize: 'contain',
+              maskSize: 'contain',
+            }}
+          />
+          <h1 className="text-5xl md:text-6xl font-serif font-bold text-gray-900 dark:text-[#fdfbf7] tracking-tight">
+            Provi-Prints
+          </h1>
+        </div>
         <p className="text-xl text-gray-800 dark:text-slate-200 font-serif tracking-wide mt-3 mb-5">
           Providing <span className="text-base text-gray-400 dark:text-[#e9c46a]/80 italic font-light mx-1">for your</span> 
           Province <span className="text-base text-gray-400 dark:text-[#e9c46a]/80 italic font-light mx-1">through</span> 

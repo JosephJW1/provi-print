@@ -184,6 +184,9 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
   const scrollBtnTextRef = useRef<HTMLSpanElement | null>(null);
   const [isScrollBtnInTopThird, setIsScrollBtnInTopThird] = useState<boolean>(false);
   const [scrollBtnTextWidth, setScrollBtnTextWidth] = useState<number | null>(null);
+  const [isPortrait, setIsPortrait] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false
+  );
 
   useEffect(() => {
     const updateScrollBtnState = () => {
@@ -193,12 +196,17 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
       setIsScrollBtnInTopThird(btnCenterY <= window.innerHeight / 3);
     };
 
-    updateScrollBtnState();
+    const updateOrientation = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth);
+      updateScrollBtnState();
+    };
+
+    updateOrientation();
     window.addEventListener('scroll', updateScrollBtnState, { passive: true });
-    window.addEventListener('resize', updateScrollBtnState, { passive: true });
+    window.addEventListener('resize', updateOrientation, { passive: true });
     return () => {
       window.removeEventListener('scroll', updateScrollBtnState);
-      window.removeEventListener('resize', updateScrollBtnState);
+      window.removeEventListener('resize', updateOrientation);
     };
   }, []);
 
@@ -285,12 +293,42 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
     fetchAndZoomToLocation();
   }, [userLocation, fetchAndZoomToLocation]);
 
-  const zoomOutAll = () => {
+  const getClampedZoomOutCenter = useCallback(
+    (anchor: [number, number], portrait: boolean): [number, number] => {
+      const [lon, lat] = anchor;
+      const clampedLon = Math.max(-4.5, Math.min(-1.5, lon));
+      if (portrait) {
+        // In full-height vertical mode (height=950), the UK spans ~930px vertically,
+        // so clamping to 54.8°N leaves ~10px padding at both top and bottom with no empty space.
+        return [clampedLon, 54.8];
+      }
+      // In half-height horizontal mode (height=475), clamp latitude to [52.35, 57.11]
+      // so the UK shape never pulls away from the top or bottom border beyond ~10px padding.
+      const clampedLat = Math.max(52.35, Math.min(57.11, lat));
+      return [clampedLon, clampedLat];
+    },
+    []
+  );
+
+  const zoomOutAll = useCallback(() => {
     setPosition({
-      coordinates: userLocation,
+      coordinates: getClampedZoomOutCenter(userLocation, isPortrait),
       zoom: 1
     });
-  };
+  }, [userLocation, isPortrait, getClampedZoomOutCenter]);
+
+  // Keep zoomed-out view clamped without empty space when switching between portrait and landscape
+  useEffect(() => {
+    setPosition((prev) => {
+      if (prev.zoom === 1) {
+        return {
+          coordinates: getClampedZoomOutCenter(userLocation, isPortrait),
+          zoom: 1
+        };
+      }
+      return prev;
+    });
+  }, [isPortrait, userLocation, getClampedZoomOutCenter]);
 
   useEffect(() => {
     axios.get('http://localhost:3001/towns')
@@ -1252,9 +1290,10 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
           </div>
 
           <ComposableMap
+            key={isPortrait ? 'map-portrait' : 'map-landscape'}
             projection="geoMercator"
             width={1200}
-            height={475}
+            height={isPortrait ? 950 : 475}
             projectionConfig={{
               scale: 3300,
               center: DEFAULT_MAP_CENTER
