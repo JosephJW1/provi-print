@@ -98,7 +98,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Navigation Bar */}
-      <nav className="bg-[#2c3e50] dark:bg-[#1a2536] text-white sticky top-0 z-20 shadow-md border-b border-transparent dark:border-slate-800/80 transition-colors duration-300">
+      <nav className="bg-[#2c3e50] dark:bg-[#1a2536] text-white sticky top-0 z-50 shadow-md border-b border-transparent dark:border-slate-800/80 transition-colors duration-300">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3.5">
           {/* Left spacer on desktop to keep nav links centered */}
           <div className="hidden md:block w-32" />

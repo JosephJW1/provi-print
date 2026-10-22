@@ -18,3 +18,12 @@ html.dark input:-webkit-autofill:active {
   caret-color: #e9c46a !important;
   border-color: #334155 !important;
 }
+
+/* Hide scrollbars on swipable horizontal strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
