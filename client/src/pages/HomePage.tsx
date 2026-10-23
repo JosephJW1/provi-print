@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import {
   ComposableMap,
   Geographies,
@@ -8,8 +7,10 @@ import {
   ZoomableGroup,
   useZoomPanContext,
 } from 'react-simple-maps';
+import api from '../api/axios';
+import ProtectedDesignPreview from '../components/ProtectedDesignPreview';
 
-// --- Type Definitions ---
+// --- Type Definitions aligned with Backend Models (Design & Towns) ---
 interface HomePageProps {
   isDarkMode?: boolean;
 }
@@ -20,75 +21,53 @@ interface Charity {
   description: string;
 }
 
-interface PrintDesign {
-  id: string;
-  title: string;
-  edition: string;
-  image: string;
-  price: string;
-}
-
-interface Slide {
+export interface Design {
   id: number;
-  city: string;
   title: string;
-  image: string;
-  price: string;
-  charities: Charity[];
+  description: string | null;
+  image_url: string;
+  createdAt?: string;
+  updatedAt?: string;
+  Towns?: Array<{
+    id: number;
+    townName: string;
+    latitude?: number;
+    longitude?: number;
+  }>;
 }
 
-interface CityData {
-  name: string;
-  color: string;
-  description: string;
-  charities: Charity[];
-  designs: PrintDesign[];
-}
-
-interface BackendTown {
+export interface BackendTown {
   id: number;
   townName: string;
   latitude: number;
   longitude: number;
   createdAt: string;
   updatedAt: string;
+  Designs?: Design[];
+}
+
+interface Slide {
+  id: number | string;
+  city: string;
+  design: Design;
+  charities: Charity[];
+}
+
+interface CityUIDefinition {
+  name: string;
+  color: string;
+  description: string;
+  charities: Charity[];
+}
+
+interface CityData extends CityUIDefinition {
+  designs: Design[];
 }
 
 const geoUrl = "/ltla2025.geojson";
 const DEFAULT_MAP_CENTER: [number, number] = [-2.5, 54.8];
 const FALLBACK_USER_COORDS: [number, number] = [-2.5873, 53.3900];
 const LOCATION_ZOOM = 9;
-
-const DEFAULT_PREVIEW_DESIGNS: PrintDesign[] = [
-  {
-    id: 'preview-warrington',
-    title: 'The Golden Gates',
-    edition: 'Warrington Collection',
-    image: '/golden-gates.png',
-    price: '£24.99',
-  },
-  {
-    id: 'preview-manchester',
-    title: 'The Industrial Heart',
-    edition: 'Manchester Collection',
-    image: 'https://picsum.photos/id/175/800/1000',
-    price: '£24.99',
-  },
-  {
-    id: 'preview-edinburgh',
-    title: 'Highland Majesty',
-    edition: 'Edinburgh Collection',
-    image: 'https://picsum.photos/id/1040/800/1000',
-    price: '£29.99',
-  },
-  {
-    id: 'preview-liverpool',
-    title: 'Maritime Legacy',
-    edition: 'Liverpool Collection',
-    image: 'https://picsum.photos/id/124/800/1000',
-    price: '£22.99',
-  },
-];
 
 interface TownMarkerProps {
   city: CityData & { coordinates: [number, number] };
@@ -156,6 +135,7 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
   const [activeDesignIndex, setActiveDesignIndex] = useState<number>(0);
   const [currentSlide, setCurrentSlide] = useState<number>(0);
   const [townsData, setTownsData] = useState<BackendTown[]>([]);
+  const [designsData, setDesignsData] = useState<Design[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number]>(FALLBACK_USER_COORDS);
 
   // Swipe tracking refs for the print design coverflow
@@ -298,12 +278,8 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
       const [lon, lat] = anchor;
       const clampedLon = Math.max(-4.5, Math.min(-1.5, lon));
       if (portrait) {
-        // In full-height vertical mode (height=950), the UK spans ~930px vertically,
-        // so clamping to 54.8°N leaves ~10px padding at both top and bottom with no empty space.
         return [clampedLon, 54.8];
       }
-      // In half-height horizontal mode (height=475), clamp latitude to [52.35, 57.11]
-      // so the UK shape never pulls away from the top or bottom border beyond ~10px padding.
       const clampedLat = Math.max(52.35, Math.min(57.11, lat));
       return [clampedLon, clampedLat];
     },
@@ -331,7 +307,7 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
   }, [isPortrait, userLocation, getClampedZoomOutCenter]);
 
   useEffect(() => {
-    axios.get('http://localhost:3001/towns')
+    api.get<BackendTown[]>('/towns')
       .then((response) => {
         setTownsData(response.data);
       })
@@ -339,109 +315,18 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
         console.error("Error fetching towns:", error);
       });
 
+    api.get<Design[]>('/designs')
+      .then((response) => {
+        setDesignsData(response.data);
+      })
+      .catch((error) => {
+        console.error("Error fetching designs:", error);
+      });
+
     fetchAndZoomToLocation();
   }, [fetchAndZoomToLocation]);
 
-  const slides: Slide[] = [
-    {
-      id: 1,
-      city: 'Manchester',
-      title: 'The Industrial Heart',
-      image: 'https://picsum.photos/id/175/1200/800',
-      price: '£24.99',
-      charities: [
-        {
-          name: 'Wood Street Mission',
-          logo: 'https://placehold.co/60x60/2563eb/ffffff?text=WSM',
-          description: 'Helps children and families affected by poverty in Manchester with everyday essentials, school uniforms, and books.'
-        },
-        {
-          name: 'Manchester Central Foodbank',
-          logo: 'https://placehold.co/60x60/2563eb/ffffff?text=MCF',
-          description: 'Supplies emergency nutritionally balanced food parcels and community support across central Manchester.'
-        },
-        {
-          name: 'Mustard Tree',
-          logo: 'https://placehold.co/60x60/2563eb/ffffff?text=MT',
-          description: 'Combats poverty and prevents homelessness across Greater Manchester through food clubs, training, and creative programmes.'
-        }
-      ]
-    },
-    {
-      id: 2,
-      city: 'Edinburgh',
-      title: 'Highland Majesty',
-      image: 'https://picsum.photos/id/1040/1200/800',
-      price: '£29.99',
-      charities: [
-        {
-          name: "Edinburgh Children's Hospital",
-          logo: 'https://placehold.co/60x60/e11d48/ffffff?text=ECH',
-          description: 'Funds life-changing medical equipment, family support, and play therapy for sick children across Scotland.'
-        },
-        {
-          name: 'Edinburgh Food Project',
-          logo: 'https://placehold.co/60x60/e11d48/ffffff?text=EFP',
-          description: 'Provides emergency food parcels alongside debt, benefits, and money advice to local people in crisis.'
-        },
-        {
-          name: 'Streetwork',
-          logo: 'https://placehold.co/60x60/e11d48/ffffff?text=SW',
-          description: 'Delivers frontline outreach, safe shelter, and crisis support to people experiencing homelessness in Edinburgh.'
-        }
-      ]
-    },
-    {
-      id: 3,
-      city: 'Liverpool',
-      title: 'Maritime Legacy',
-      image: 'https://picsum.photos/id/124/1200/800',
-      price: '£22.99',
-      charities: [
-        {
-          name: 'Kind Liverpool',
-          logo: 'https://placehold.co/60x60/16a34a/ffffff?text=KL',
-          description: 'Supports disadvantaged children and families across Merseyside with education, crisis hampers, and residential breaks.'
-        },
-        {
-          name: 'South Liverpool Foodbank',
-          logo: 'https://placehold.co/60x60/16a34a/ffffff?text=SLF',
-          description: 'Provides emergency food supplies and compassionate practical support to local individuals and families facing hardship.'
-        },
-        {
-          name: 'The Whitechapel Centre',
-          logo: 'https://placehold.co/60x60/16a34a/ffffff?text=TWC',
-          description: 'Works day and night to help people sleeping rough in Liverpool find safe accommodation, healthcare, and independence.'
-        }
-      ]
-    },
-    {
-      id: 4,
-      city: 'Warrington',
-      title: 'The Golden Gates',
-      image: '/golden-gates.png',
-      price: '£24.99',
-      charities: [
-        {
-          name: 'Warrington Foodbank',
-          logo: 'https://placehold.co/60x60/8b5cf6/ffffff?text=WF',
-          description: 'Offers emergency food parcels and essential household items to Warrington residents experiencing financial crisis.'
-        },
-        {
-          name: 'Warrington Youth Zone',
-          logo: 'https://placehold.co/60x60/8b5cf6/ffffff?text=WYZ',
-          description: 'Gives young people in Warrington a safe, inspiring space with sports, arts, mentoring, and hot meals.'
-        },
-        {
-          name: "St Rocco's Hospice",
-          logo: 'https://placehold.co/60x60/8b5cf6/ffffff?text=SRH',
-          description: 'Provides specialist palliative care and emotional support for patients with life-limiting illnesses and their families.'
-        }
-      ]
-    }
-  ];
-
-  const cityUIData: CityData[] = [
+  const baseCityUIData: CityUIDefinition[] = [
     {
       name: 'Edinburgh',
       color: '#e11d48',
@@ -463,36 +348,6 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
           logo: 'https://placehold.co/60x60/e11d48/ffffff?text=SW',
           description: 'Delivers frontline outreach, safe shelter, and crisis support to people experiencing homelessness in Edinburgh.'
         }
-      ],
-      designs: [
-        {
-          id: 'edb-1',
-          title: 'Highland Majesty',
-          edition: 'Castle Rock Edition',
-          image: 'https://picsum.photos/id/1040/800/1000',
-          price: '£29.99',
-        },
-        {
-          id: 'edb-2',
-          title: 'Royal Mile Twilight',
-          edition: 'Old Town Series',
-          image: 'https://picsum.photos/id/1018/800/1000',
-          price: '£27.99',
-        },
-        {
-          id: 'edb-3',
-          title: 'Dean Village Waters',
-          edition: 'Water of Leith Print',
-          image: 'https://picsum.photos/id/1039/800/1000',
-          price: '£26.99',
-        },
-        {
-          id: 'edb-4',
-          title: 'Calton Hill Sunset',
-          edition: 'Monument Collection',
-          image: 'https://picsum.photos/id/1015/800/1000',
-          price: '£29.99',
-        },
       ],
     },
     {
@@ -517,36 +372,6 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
           description: 'Combats poverty and prevents homelessness across Greater Manchester through food clubs, training, and creative programmes.'
         }
       ],
-      designs: [
-        {
-          id: 'man-1',
-          title: 'The Industrial Heart',
-          edition: 'Ancoats Mill Series',
-          image: 'https://picsum.photos/id/175/800/1000',
-          price: '£24.99',
-        },
-        {
-          id: 'man-2',
-          title: 'Castlefield Viaduct',
-          edition: 'Bridgewater Canal Print',
-          image: 'https://picsum.photos/id/1033/800/1000',
-          price: '£26.99',
-        },
-        {
-          id: 'man-3',
-          title: 'Northern Quarter Tram',
-          edition: 'Metrolink Vintage',
-          image: 'https://picsum.photos/id/1076/800/1000',
-          price: '£24.99',
-        },
-        {
-          id: 'man-4',
-          title: 'Central Library Dome',
-          edition: 'St Peter’s Square',
-          image: 'https://picsum.photos/id/1081/800/1000',
-          price: '£27.99',
-        },
-      ],
     },
     {
       name: 'Liverpool',
@@ -569,36 +394,6 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
           logo: 'https://placehold.co/60x60/16a34a/ffffff?text=TWC',
           description: 'Works day and night to help people sleeping rough in Liverpool find safe accommodation, healthcare, and independence.'
         }
-      ],
-      designs: [
-        {
-          id: 'liv-1',
-          title: 'Maritime Legacy',
-          edition: 'Pier Head Series',
-          image: 'https://picsum.photos/id/124/800/1000',
-          price: '£22.99',
-        },
-        {
-          id: 'liv-2',
-          title: 'Royal Albert Dock',
-          edition: 'Mersey Reflections',
-          image: 'https://picsum.photos/id/1050/800/1000',
-          price: '£24.99',
-        },
-        {
-          id: 'liv-3',
-          title: 'The Three Graces',
-          edition: 'Liver Building Print',
-          image: 'https://picsum.photos/id/1067/800/1000',
-          price: '£25.99',
-        },
-        {
-          id: 'liv-4',
-          title: 'Mathew Street Echoes',
-          edition: 'Cavern Quarter Edition',
-          image: 'https://picsum.photos/id/1029/800/1000',
-          price: '£22.99',
-        },
       ],
     },
     {
@@ -623,38 +418,44 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
           description: 'Provides specialist palliative care and emotional support for patients with life-limiting illnesses and their families.'
         }
       ],
-      designs: [
-        {
-          id: 'war-1',
-          title: 'The Golden Gates',
-          edition: 'Town Hall Heritage',
-          image: '/golden-gates.png',
-          price: '£24.99',
-        },
-        {
-          id: 'war-2',
-          title: 'Transporter Bridge',
-          edition: 'Bank Quay Industrial',
-          image: 'https://picsum.photos/id/1043/800/1000',
-          price: '£25.99',
-        },
-        {
-          id: 'war-3',
-          title: 'Walton Hall Gardens',
-          edition: 'Cheshire Estate Series',
-          image: 'https://picsum.photos/id/106/800/1000',
-          price: '£23.99',
-        },
-        {
-          id: 'war-4',
-          title: 'Lymm Cross & Dam',
-          edition: 'Bridgewater Series',
-          image: 'https://picsum.photos/id/1036/800/1000',
-          price: '£24.99',
-        },
-      ],
     }
   ];
+
+  // Populate each town's designs strictly from the backend database (DesignTowns)
+  const cityUIData: CityData[] = baseCityUIData.map((city) => {
+    const backendTown = townsData.find(
+      (t) => t.townName.toLowerCase() === city.name.toLowerCase()
+    );
+
+    const fromDesignsEndpoint = designsData.filter((d) =>
+      d.Towns?.some((t) => t.townName.toLowerCase() === city.name.toLowerCase())
+    );
+    const fromTownsEndpoint = backendTown?.Designs || [];
+
+    const dbDesigns =
+      fromDesignsEndpoint.length > 0 ? fromDesignsEndpoint : fromTownsEndpoint;
+
+    return {
+      ...city,
+      designs: dbDesigns,
+    };
+  });
+
+  // Build Hero Carousel slides strictly from database designs
+  const slides: Slide[] = designsData.map((design) => {
+    const linkedTownName =
+      design.Towns && design.Towns.length > 0 ? design.Towns[0].townName : 'UK Collection';
+    const matchedCity = cityUIData.find(
+      (c) => c.name.toLowerCase() === linkedTownName.toLowerCase()
+    );
+
+    return {
+      id: design.id,
+      city: matchedCity ? matchedCity.name : linkedTownName,
+      design,
+      charities: matchedCity ? matchedCity.charities : [],
+    };
+  });
 
   const mergedCities = cityUIData.map(city => {
     const backendData = townsData.find(t => t.townName === city.name);
@@ -668,7 +469,9 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
 
   const activeCityData = cityUIData.find(c => c.name === selectedCity) || null;
   const activeCharityData = activeCityData?.charities.find(ch => ch.name === selectedCharityName) || null;
-  const currentDesigns = activeCityData ? activeCityData.designs : DEFAULT_PREVIEW_DESIGNS;
+
+  // Strictly use backend Design records (either for the selected town, or all database designs when no town is selected)
+  const currentDesigns: Design[] = activeCityData ? activeCityData.designs : designsData;
   const totalDesigns = currentDesigns.length;
 
   const handleSelectCity = (cityName: string, shouldScroll = false) => {
@@ -698,7 +501,6 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
     let animationFrameId: number;
     let lastTime = performance.now();
 
-    // Initialize in the second tiled copy so leftward dragging also has buffer items
     const initSetWidth = firstSetRef.current?.offsetWidth || 0;
     if (charityScrollRef.current && charityScrollPosRef.current === 0 && initSetWidth > 0) {
       charityScrollPosRef.current = initSetWidth;
@@ -723,7 +525,6 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
 
           if (progress >= 1) {
             charitySmoothAnimRef.current = null;
-            // Normalize after reaching start and pause for 3.5 seconds before resuming slow scroll
             while (charityScrollPosRef.current >= setWidth * 3) {
               charityScrollPosRef.current -= setWidth;
             }
@@ -805,6 +606,7 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
   };
 
   const stepDesign = useCallback((direction: -1 | 1) => {
+    if (totalDesigns <= 0) return;
     setActiveDesignIndex((prev) => (prev + direction + totalDesigns) % totalDesigns);
   }, [totalDesigns]);
 
@@ -835,131 +637,146 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
   };
 
   useEffect(() => {
+    if (slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlide((prevSlide) => (prevSlide + 1) % slides.length);
     }, 5000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  const nextSlide = () => {
+    if (slides.length === 0) return;
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+  const prevSlide = () => {
+    if (slides.length === 0) return;
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
 
   // Dynamic map colours for light vs dark mode
   const mapFill = isDarkMode ? "#334155" : "#d1d5db";
 
   // Helper to get relative circular offset (-1 = left, 0 = center, 1 = right, else hidden)
   const getRelativeOffset = (index: number): number => {
-    let diff = index - activeDesignIndex;
+    if (totalDesigns === 1) return 0;
+    if (totalDesigns === 2) return index === safeActiveIndex ? 0 : 1;
+    let diff = index - safeActiveIndex;
     if (diff > totalDesigns / 2) diff -= totalDesigns;
     if (diff < -totalDesigns / 2) diff += totalDesigns;
     return diff;
   };
 
-  const activeDesign = currentDesigns[activeDesignIndex] || currentDesigns[0];
+  const safeActiveIndex = totalDesigns > 0 ? activeDesignIndex % totalDesigns : 0;
+  const activeDesign = totalDesigns > 0 ? currentDesigns[safeActiveIndex] : null;
+  const safeSlideIndex = slides.length > 0 ? currentSlide % slides.length : 0;
 
   return (
     <>
-      <section className="max-w-6xl mx-auto px-4 py-12">
-        <div
-          className="relative overflow-hidden rounded-xl shadow-2xl bg-gray-900 border border-transparent dark:border-slate-800 group"
-          style={{ height: '500px' }}
-        >
-          {slides.map((slide, index) => (
-            <div
-              key={slide.id}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
-              }`}
-            >
-              <img
-                src={slide.image}
-                alt={`Vintage poster of ${slide.city}`}
-                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = `https://placehold.co/1200x800/2c3e50/e9c46a?text=${slide.city}+Poster`;
-                }}
-                className="w-full h-full object-cover opacity-80"
-                style={{
-                  filter: 'sepia(60%) contrast(120%) saturate(80%) hue-rotate(-5deg)',
-                  transform: 'scale(1.062)'
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-10">
-                <div className="transform transition-all duration-700 translate-y-0">
-                  <span className="inline-block px-3 py-1 mb-3 text-xs font-semibold tracking-wider text-gray-900 uppercase bg-[#e9c46a] rounded-full">
-                    Featured Print
-                  </span>
-                  <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-2 drop-shadow-lg">
-                    {slide.city}
-                  </h2>
-                  <p className="text-xl text-gray-200 mb-2 font-light italic">
-                    "{slide.title}"
-                  </p>
-                  <div className="mb-4">
-                    <p className="text-sm text-[#e9c46a] font-semibold tracking-wide flex items-center gap-2 mb-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                        <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                      </svg>
-                      Profits support your choice of local charities:
+      {slides.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 py-12">
+          <div
+            className="relative overflow-hidden rounded-xl shadow-2xl bg-gray-900 border border-transparent dark:border-slate-800 group"
+            style={{ height: '500px' }}
+          >
+            {slides.map((slide, index) => (
+              <div
+                key={slide.id}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  index === safeSlideIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                }`}
+              >
+                <ProtectedDesignPreview
+                  previewUrl={slide.design.image_url}
+                  altText={`${slide.design.title} - ${slide.city}`}
+                  fallbackText={slide.design.title}
+                  className="w-full h-full"
+                  imgClassName="w-full h-full object-cover opacity-85"
+                />
+                <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-10">
+                  <div className="transform transition-all duration-700 translate-y-0">
+                    <span className="inline-block px-3 py-1 mb-3 text-xs font-semibold tracking-wider text-gray-900 uppercase bg-[#e9c46a] rounded-full">
+                      Featured Design
+                    </span>
+                    <h2 className="text-4xl md:text-5xl font-serif font-bold text-white mb-2 drop-shadow-lg">
+                      {slide.city}
+                    </h2>
+                    <p className="text-xl text-gray-200 mb-2 font-light italic">
+                      "{slide.design.title}"
                     </p>
+                    {slide.charities.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-sm text-[#e9c46a] font-semibold tracking-wide flex items-center gap-2 mb-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                            <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                          </svg>
+                          Profits support your choice of local charities:
+                        </p>
 
-                    <div className="flex flex-wrap gap-3 pl-7 mt-2 mb-4">
-                      {slide.charities.map((charity, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 bg-black/40 rounded-full pr-3 p-1 border border-white/10 shadow-sm hover:bg-black/60 transition-colors cursor-default"
-                        >
-                          <img src={charity.logo} alt={`${charity.name} logo`} className="w-6 h-6 rounded-full bg-white" />
-                          <span className="text-xs text-gray-200 font-medium whitespace-nowrap">{charity.name}</span>
+                        <div className="flex flex-wrap gap-3 pl-7 mt-2 mb-4">
+                          {slide.charities.map((charity, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 bg-black/40 rounded-full pr-3 p-1 border border-white/10 shadow-sm hover:bg-black/60 transition-colors cursor-default"
+                            >
+                              <img src={charity.logo} alt={`${charity.name} logo`} className="w-6 h-6 rounded-full bg-white" />
+                              <span className="text-xs text-gray-200 font-medium whitespace-nowrap">{charity.name}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between max-w-sm">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectCity(slide.city, true)}
+                        className="px-6 py-2 bg-white dark:bg-[#e9c46a] text-gray-900 font-bold rounded hover:bg-gray-200 dark:hover:bg-[#f4d58d] transition-colors shadow-lg cursor-pointer"
+                      >
+                        Explore {slide.city} Designs
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between max-w-sm">
-                    <span className="text-2xl font-bold text-white">{slide.price}</span>
-                    <button className="px-6 py-2 bg-white dark:bg-[#e9c46a] text-gray-900 font-bold rounded hover:bg-gray-200 dark:hover:bg-[#f4d58d] transition-colors shadow-lg">
-                      Shop Now
-                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-
-          <button
-            onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
-            aria-label="Previous slide"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-          </button>
-          <button
-            onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
-            aria-label="Next slide"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </button>
-
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
-            {slides.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                className={`w-2.5 h-2.5 rounded-full transition-all focus:outline-none ${
-                  index === currentSlide ? 'bg-[#e9c46a] w-8' : 'bg-white/50 hover:bg-white/80'
-                }`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
             ))}
+
+            {slides.length > 1 && (
+              <>
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
+                  aria-label="Previous slide"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-full bg-black/40 text-white hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
+                  aria-label="Next slide"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex space-x-2">
+                  {slides.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentSlide(index)}
+                      className={`w-2.5 h-2.5 rounded-full transition-all focus:outline-none ${
+                        index === safeSlideIndex ? 'bg-[#e9c46a] w-8' : 'bg-white/50 hover:bg-white/80'
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <main className="max-w-6xl mx-auto px-4 py-12 flex flex-col items-center gap-6 border-t border-gray-200 dark:border-slate-800 transition-colors duration-300">
         {/* Unified Town Explorer Section - Fixed height prevents any layout shift when selecting/switching towns */}
@@ -1075,7 +892,7 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
             </div>
           </div>
 
-          {/* Right Side: Spotify-Style Interactive Coverflow Print Flip-Through */}
+          {/* Right Side: Interactive Town Design Carousel (strictly backed by database Design records) */}
           <div className="md:w-1/2 h-[310px] md:h-full flex flex-col items-center justify-between select-none">
             <div
               className="relative w-full h-[235px] flex items-center justify-center overflow-hidden touch-pan-y"
@@ -1086,75 +903,85 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
               onPointerCancel={handlePointerEnd}
               onPointerLeave={handlePointerEnd}
             >
-              {currentDesigns.map((design, index) => {
-                const offset = getRelativeOffset(index);
-                const isCenter = offset === 0;
-                const isLeft = offset === -1;
-                const isRight = offset === 1;
-                const isVisible = isCenter || isLeft || isRight;
+              {totalDesigns === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center px-6 py-8 rounded-2xl border border-dashed border-gray-300 dark:border-slate-700 bg-gray-50/60 dark:bg-slate-800/40 max-w-xs">
+                  <p className="text-sm font-serif font-semibold text-gray-700 dark:text-slate-200">
+                    {activeCityData
+                      ? `No designs uploaded for ${activeCityData.name} yet`
+                      : 'No designs uploaded yet'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                    Upload a design in the Admin panel and link it to{' '}
+                    {activeCityData ? activeCityData.name : 'a town'} to display it here.
+                  </p>
+                </div>
+              ) : (
+                currentDesigns.map((design, index) => {
+                  const offset = getRelativeOffset(index);
+                  const isCenter = offset === 0;
+                  const isLeft = offset === -1;
+                  const isRight = offset === 1;
+                  const isVisible = isCenter || isLeft || isRight;
 
-                let transformStyle = 'translate3d(0px, 0px, -160px) scale(0.65)';
-                if (isCenter) {
-                  transformStyle = `translate3d(${dragOffsetX * 0.35}px, 0px, 0px) scale(1) rotateY(${dragOffsetX * -0.08}deg)`;
-                } else if (isLeft) {
-                  transformStyle = `translate3d(calc(-105px + ${dragOffsetX * 0.15}px), 6px, -70px) scale(0.8) rotateY(24deg) rotateZ(-4deg)`;
-                } else if (isRight) {
-                  transformStyle = `translate3d(calc(105px + ${dragOffsetX * 0.15}px), 6px, -70px) scale(0.8) rotateY(-24deg) rotateZ(4deg)`;
-                }
+                  let transformStyle = 'translate3d(0px, 0px, -160px) scale(0.65)';
+                  if (isCenter) {
+                    transformStyle = `translate3d(${dragOffsetX * 0.35}px, 0px, 0px) scale(1) rotateY(${dragOffsetX * -0.08}deg)`;
+                  } else if (isLeft) {
+                    transformStyle = `translate3d(calc(-105px + ${dragOffsetX * 0.15}px), 6px, -70px) scale(0.8) rotateY(24deg) rotateZ(-4deg)`;
+                  } else if (isRight) {
+                    transformStyle = `translate3d(calc(105px + ${dragOffsetX * 0.15}px), 6px, -70px) scale(0.8) rotateY(-24deg) rotateZ(4deg)`;
+                  }
 
-                return (
-                  <div
-                    key={design.id}
-                    onClick={() => {
-                      if (isLeft) stepDesign(-1);
-                      else if (isRight) stepDesign(1);
-                    }}
-                    style={{
-                      transform: transformStyle,
-                      transformStyle: 'preserve-3d',
-                    }}
-                    className={`absolute w-[156px] h-[215px] rounded-xl overflow-hidden shadow-xl border transition-all duration-500 ease-out ${
-                      isCenter
-                        ? 'z-30 opacity-100 border-[#e9c46a] cursor-grab active:cursor-grabbing shadow-2xl'
-                        : isLeft || isRight
-                        ? 'z-20 opacity-45 hover:opacity-75 border-gray-300 dark:border-slate-700 cursor-pointer'
-                        : 'z-10 opacity-0 pointer-events-none border-transparent'
-                    } ${!isVisible ? ' invisible' : ''}`}
-                    aria-hidden={!isVisible}
-                  >
-                    <img
-                      src={design.image}
-                      alt={design.title}
-                      draggable={false}
-                      onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = `https://placehold.co/600x800/2c3e50/e9c46a?text=${encodeURIComponent(design.title)}`;
+                  const townBadge =
+                    activeCityData?.name ||
+                    (design.Towns && design.Towns.length > 0
+                      ? design.Towns.map((t) => t.townName).join(', ')
+                      : 'UK Collection');
+
+                  return (
+                    <div
+                      key={design.id}
+                      onClick={() => {
+                        if (isLeft) stepDesign(-1);
+                        else if (isRight) stepDesign(1);
                       }}
-                      className="w-full h-full object-cover pointer-events-none"
                       style={{
-                        filter: 'sepia(45%) contrast(115%) saturate(85%)',
+                        transform: transformStyle,
+                        transformStyle: 'preserve-3d',
                       }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-3 pointer-events-none">
-                      <span className="text-[10px] uppercase tracking-wider text-[#e9c46a] font-semibold truncate">
-                        {design.edition}
-                      </span>
-                      <p className="text-xs font-serif font-bold text-white leading-tight truncate">
-                        {design.title}
-                      </p>
-                      <div className="mt-1.5 flex items-center justify-between">
-                        <span className="text-xs font-bold text-white">{design.price}</span>
-                        {isCenter && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold bg-[#e9c46a] text-gray-900 rounded">
-                            View
-                          </span>
+                      className={`absolute w-[156px] h-[215px] rounded-xl overflow-hidden shadow-xl border transition-all duration-500 ease-out ${
+                        isCenter
+                          ? 'z-30 opacity-100 border-[#e9c46a] cursor-grab active:cursor-grabbing shadow-2xl'
+                          : isLeft || isRight
+                          ? 'z-20 opacity-45 hover:opacity-75 border-gray-300 dark:border-slate-700 cursor-pointer'
+                          : 'z-10 opacity-0 pointer-events-none border-transparent'
+                      } ${!isVisible ? ' invisible' : ''}`}
+                      aria-hidden={!isVisible}
+                    >
+                      <ProtectedDesignPreview
+                        previewUrl={design.image_url}
+                        altText={design.title}
+                        fallbackText={design.title}
+                        className="w-full h-full"
+                        imgClassName="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-3 pointer-events-none">
+                        <span className="text-[10px] uppercase tracking-wider text-[#e9c46a] font-semibold truncate">
+                          {townBadge}
+                        </span>
+                        <p className="text-xs font-serif font-bold text-white leading-tight truncate">
+                          {design.title}
+                        </p>
+                        {design.description && (
+                          <p className="text-[10px] text-gray-300 truncate mt-0.5">
+                            {design.description}
+                          </p>
                         )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Active Design Footer & Controls */}
@@ -1162,7 +989,8 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
               <button
                 type="button"
                 onClick={() => stepDesign(-1)}
-                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                disabled={totalDesigns <= 1}
+                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:cursor-default"
                 aria-label="Previous design"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
@@ -1171,31 +999,33 @@ const HomePage: React.FC<HomePageProps> = ({ isDarkMode = false }) => {
               </button>
 
               <div className="flex flex-col items-center">
-                <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate max-w-[200px]">
-                  {activeDesign.title}{' '}
-                  <span className="text-[#e9c46a] font-bold ml-1">{activeDesign.price}</span>
+                <p className="text-xs font-semibold text-gray-800 dark:text-slate-200 truncate max-w-[220px]">
+                  {activeDesign ? activeDesign.title : 'No designs to display'}
                 </p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  {currentDesigns.map((d, idx) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => setActiveDesignIndex(idx)}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                        idx === activeDesignIndex
-                          ? 'w-5 bg-[#e9c46a]'
-                          : 'w-1.5 bg-gray-300 dark:bg-slate-700 hover:bg-gray-400'
-                      }`}
-                      aria-label={`Select design ${idx + 1}`}
-                    />
-                  ))}
-                </div>
+                {totalDesigns > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {currentDesigns.map((d, idx) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setActiveDesignIndex(idx)}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                          idx === safeActiveIndex
+                            ? 'w-5 bg-[#e9c46a]'
+                            : 'w-1.5 bg-gray-300 dark:bg-slate-700 hover:bg-gray-400'
+                        }`}
+                        aria-label={`Select design ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={() => stepDesign(1)}
-                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                disabled={totalDesigns <= 1}
+                className="p-1.5 rounded-full text-gray-500 hover:text-gray-900 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:cursor-default"
                 aria-label="Next design"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">

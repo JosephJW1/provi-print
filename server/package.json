@@ -11,17 +11,26 @@
     "dev": "nodemon --env-file=.env index.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@aws-sdk/s3-request-presigner": "^3.1156.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.7",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0",
     "mysql2": "^3.24.5",
     "sequelize": "^6.37.8",
-    "sequelize-cli": "^6.6.5"
+    "sequelize-cli": "^6.6.5",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.5",
+    "nodemon": "^3.1.14",
+    "typescript": "^7.0.2"
   }
 }

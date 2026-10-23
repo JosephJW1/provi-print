@@ -2,22 +2,30 @@ module.exports = (sequelize, DataTypes) => {
   const Design = sequelize.define("Design", {
     title: {
       type: DataTypes.STRING,
-      allowNull: false
+      allowNull: false,
     },
     description: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: true,
     },
     image_url: {
       type: DataTypes.STRING,
-      allowNull: false 
-    }
+      allowNull: false,
+    },
+    publicPreviewKey: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    privateMasterKey: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   });
 
   Design.associate = (models) => {
-    Design.belongsToMany(models.Towns, { 
-      through: 'DesignTowns', 
-      foreignKey: 'designId' 
+    Design.belongsToMany(models.Towns, {
+      through: "DesignTowns",
+      foreignKey: "designId",
     });
   };
 

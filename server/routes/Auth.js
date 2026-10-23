@@ -5,11 +5,14 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User } = require('../models');
-const { validateToken, JWT_SECRET } = require('../middlewares/AuthMiddleware');
+const { validateToken, revokeToken, JWT_SECRET } = require('../middlewares/AuthMiddleware');
 
 const BCRYPT_ROUNDS = 12;
-// Pre-computed dummy hash used to mitigate timing enumeration attacks when a user is not found
-const DUMMY_PASSWORD_HASH = '$2b$12$eImiTXuWVxfM37uY4JANjQ.1JqX.vK1wG/wY8/vK1wG/wY8/vK1wG';
+// Compute a valid 60-character 12-round bcrypt hash at startup to mitigate timing enumeration attacks
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  'provi_prints_dummy_timing_mitigation_secret',
+  BCRYPT_ROUNDS
+);
 
 const getCookieOptions = () => ({
   httpOnly: true,
@@ -17,6 +20,9 @@ const getCookieOptions = () => ({
   sameSite: 'strict',
   path: '/',
 });
+
+const getCookieName = (req) =>
+  req.headers['x-portal'] === 'admin' ? 'adminAccessToken' : 'accessToken';
 
 // Secure Registration Route
 router.post('/register', async (req, res) => {
@@ -37,14 +43,22 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: "Username, email, and password are required" });
   }
 
+  const usernameRegex = /^[a-zA-Z0-9_.-]{3,30}$/;
+  if (!usernameRegex.test(trimmedUsername)) {
+    return res.status(400).json({
+      error: "Username must be 3-30 characters and contain only letters, numbers, underscores, dots, or hyphens"
+    });
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(normalizedEmail)) {
+  if (normalizedEmail.length > 254 || !emailRegex.test(normalizedEmail)) {
     return res.status(400).json({ error: "Invalid email format" });
   }
 
-  // Bcrypt truncates passwords longer than 72 bytes
-  if (password.length < 8 || password.length > 72) {
-    return res.status(400).json({ error: "Password must be between 8 and 72 characters" });
+  // Bcrypt truncates passwords longer than 72 UTF-8 bytes
+  const passwordByteLength = Buffer.byteLength(password, 'utf8');
+  if (password.length < 8 || passwordByteLength > 72) {
+    return res.status(400).json({ error: "Password must be between 8 characters and 72 bytes" });
   }
 
   try {
@@ -88,6 +102,11 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: "Username/Email and password are required" });
   }
 
+  // Prevent DoS with oversized password inputs before running bcrypt.compare
+  if (Buffer.byteLength(password, 'utf8') > 1024) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
   try {
     // Find user by either normalized email OR exact username
     const user = await User.findOne({
@@ -99,12 +118,17 @@ router.post('/login', async (req, res) => {
       }
     });
 
-    // Always run bcrypt.compare to prevent timing attacks that leak user existence
+    // Always run bcrypt.compare against a valid 12-round hash to prevent timing attacks
     const targetHash = user ? user.password_hash : DUMMY_PASSWORD_HASH;
     const match = await bcrypt.compare(password, targetHash);
 
     if (!user || !match) {
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const isAdminPortal = req.headers['x-portal'] === 'admin';
+    if (isAdminPortal && user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied: Admins only." });
     }
 
     // Include the role and username in the JWT payload
@@ -114,7 +138,8 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h', algorithm: 'HS256' }
     );
 
-    res.cookie('accessToken', accessToken, {
+    const cookieName = getCookieName(req);
+    res.cookie(cookieName, accessToken, {
       ...getCookieOptions(),
       maxAge: 3600000, // 1 hour
     });
@@ -138,9 +163,15 @@ router.get('/me', validateToken, async (req, res) => {
       attributes: ['id', 'username', 'role']
     });
 
+    const cookieName = getCookieName(req);
     if (!user) {
-      res.clearCookie('accessToken', getCookieOptions());
+      res.clearCookie(cookieName, getCookieOptions());
       return res.status(401).json({ error: "Session no longer valid" });
+    }
+
+    if (req.headers['x-portal'] === 'admin' && user.role !== 'admin') {
+      res.clearCookie(cookieName, getCookieOptions());
+      return res.status(403).json({ error: "Access denied: Admins only" });
     }
 
     res.json({
@@ -156,7 +187,12 @@ router.get('/me', validateToken, async (req, res) => {
 
 // Logout Route
 router.post('/logout', (req, res) => {
-  res.clearCookie('accessToken', getCookieOptions());
+  const cookieName = getCookieName(req);
+  const token = req.cookies?.[cookieName];
+  if (token) {
+    revokeToken(token);
+  }
+  res.clearCookie(cookieName, getCookieOptions());
   res.json({ message: "Logged out successfully" });
 });
 

@@ -7,6 +7,8 @@ import api from './api/axios';
 import LoginPage from './pages/LoginPage';
 import ProductsPage from './pages/ProductsPage';
 import ProductEditPage from './pages/ProductEditPage';
+import DesignsPage from './pages/DesignsPage';
+import DesignEditPage from './pages/DesignEditPage';
 import TownsPage from './pages/TownsPage';
 import UsersPage from './pages/UsersPage';
 
@@ -144,6 +146,7 @@ const App: React.FC = () => {
 
         <nav className="flex-1 p-4 space-y-2">
           <Link to="/" className={navItemClass('/')}>Dashboard</Link>
+          <Link to="/designs" className={navItemClass('/designs')}>Designs</Link>
           <Link to="/products" className={navItemClass('/products')}>Products</Link>
           <Link to="/towns" className={navItemClass('/towns')}>Towns</Link>
           <Link to="/users" className={navItemClass('/users')}>Users</Link>
@@ -215,6 +218,10 @@ const App: React.FC = () => {
               </div>
             }
           />
+
+          <Route path="/designs" element={<DesignsPage />} />
+          <Route path="/designs/new" element={<DesignEditPage />} />
+          <Route path="/designs/edit/:id" element={<DesignEditPage />} />
 
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/new" element={<ProductEditPage />} />

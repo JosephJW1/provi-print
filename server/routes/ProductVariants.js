@@ -3,27 +3,50 @@ const router = express.Router();
 const { ProductVariant, Product } = require('../models');
 const { validateToken, isAdmin } = require('../middlewares/AuthMiddleware');
 
+const MAX_BULK_VARIANTS = 50;
+
 // Assign multiple variants to a Product at once (Admin Only)
 router.post('/bulk', validateToken, isAdmin, async (req, res) => {
   const { ProductId, variants } = req.body;
-  // variants expects an array like: [{ name: "A4", price: 15.00, stock: 10 }, { name: "A3", price: 25.00, stock: 5 }]
 
-  if (!ProductId || !variants || !Array.isArray(variants)) {
-    return res.status(400).json({ error: "ProductId and an array of variants are required" });
+  if (!ProductId || !Array.isArray(variants) || variants.length === 0) {
+    return res.status(400).json({ error: "ProductId and a non-empty array of variants are required" });
+  }
+
+  if (variants.length > MAX_BULK_VARIANTS) {
+    return res.status(400).json({ error: `Cannot create more than ${MAX_BULK_VARIANTS} variants at once` });
   }
 
   try {
     const product = await Product.findByPk(ProductId);
-    if (!product) return res.status(404).json({ error: "Product not found" });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
 
-    // Map through the array and attach the ProductId to each variant object
-    const variantsWithProductId = variants.map(variant => ({
-      ...variant,
-      productId: ProductId
-    }));
+    // Explicitly whitelist and validate fields to prevent mass assignment
+    const sanitizedVariants = [];
+    for (const variant of variants) {
+      const rawDesc = variant?.description ?? variant?.name;
+      const rawPrice = variant?.price_pence ?? variant?.price;
+      const description = typeof rawDesc === 'string' ? rawDesc.trim() : '';
+      const price_pence = Number(rawPrice);
 
-    // Sequelize bulkCreate inserts multiple rows in a single efficient database query
-    const createdVariants = await ProductVariant.bulkCreate(variantsWithProductId);
+      if (!description || description.length > 255) {
+        return res.status(400).json({ error: "Each variant must have a valid description (1-255 characters)" });
+      }
+
+      if (!Number.isInteger(price_pence) || price_pence < 0) {
+        return res.status(400).json({ error: "Each variant must have a non-negative integer price_pence" });
+      }
+
+      sanitizedVariants.push({
+        description,
+        price_pence,
+        productId: product.id,
+      });
+    }
+
+    const createdVariants = await ProductVariant.bulkCreate(sanitizedVariants);
     res.status(201).json({ message: "Variants added successfully", variants: createdVariants });
   } catch (error) {
     console.error("Error creating variants:", error);
@@ -34,13 +57,33 @@ router.post('/bulk', validateToken, isAdmin, async (req, res) => {
 // Edit a single variant (Admin Only)
 router.put('/:id', validateToken, isAdmin, async (req, res) => {
   const variantId = req.params.id;
-  const { name, price, stock } = req.body;
+  const rawDesc = req.body.description ?? req.body.name;
+  const rawPrice = req.body.price_pence ?? req.body.price;
 
   try {
     const variant = await ProductVariant.findByPk(variantId);
-    if (!variant) return res.status(404).json({ error: "Variant not found" });
+    if (!variant) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
 
-    await variant.update({ name, price, stock });
+    const updatedFields = {};
+
+    if (rawDesc !== undefined) {
+      if (typeof rawDesc !== 'string' || !rawDesc.trim() || rawDesc.trim().length > 255) {
+        return res.status(400).json({ error: "Variant description must be a non-empty string up to 255 characters" });
+      }
+      updatedFields.description = rawDesc.trim();
+    }
+
+    if (rawPrice !== undefined) {
+      const price_pence = Number(rawPrice);
+      if (!Number.isInteger(price_pence) || price_pence < 0) {
+        return res.status(400).json({ error: "Variant price_pence must be a non-negative integer" });
+      }
+      updatedFields.price_pence = price_pence;
+    }
+
+    await variant.update(updatedFields);
     res.json({ message: "Variant updated successfully", variant });
   } catch (error) {
     console.error("Error updating variant:", error);
@@ -54,7 +97,9 @@ router.delete('/:id', validateToken, isAdmin, async (req, res) => {
 
   try {
     const variant = await ProductVariant.findByPk(variantId);
-    if (!variant) return res.status(404).json({ error: "Variant not found" });
+    if (!variant) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
 
     await variant.destroy();
     res.json({ message: "Variant deleted successfully" });

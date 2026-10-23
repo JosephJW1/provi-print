@@ -20,12 +20,19 @@ router.get('/', async (req, res) => {
 router.post('/', validateToken, isAdmin, async (req, res) => {
   const { name, description } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ error: "Product name is required" });
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 255) {
+    return res.status(400).json({ error: "Product name is required and must be a string up to 255 characters" });
+  }
+
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return res.status(400).json({ error: "Product description must be a string" });
   }
 
   try {
-    const product = await Product.create({ name, description });
+    const product = await Product.create({
+      name: name.trim(),
+      description: typeof description === 'string' ? description.trim() : null
+    });
     res.status(201).json({ message: "Product created successfully", product });
   } catch (error) {
     console.error("Error creating product:", error);
@@ -38,6 +45,14 @@ router.put('/:id', validateToken, isAdmin, async (req, res) => {
   const productId = req.params.id;
   const { name, description } = req.body;
 
+  if (name !== undefined && (typeof name !== 'string' || !name.trim() || name.trim().length > 255)) {
+    return res.status(400).json({ error: "Product name must be a non-empty string up to 255 characters" });
+  }
+
+  if (description !== undefined && description !== null && typeof description !== 'string') {
+    return res.status(400).json({ error: "Product description must be a string" });
+  }
+
   try {
     const product = await Product.findByPk(productId);
     
@@ -45,8 +60,11 @@ router.put('/:id', validateToken, isAdmin, async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // Update the product fields
-    await product.update({ name, description });
+    // Update only whitelisted product fields
+    await product.update({
+      name: name !== undefined ? name.trim() : product.name,
+      description: description !== undefined ? (typeof description === 'string' ? description.trim() : null) : product.description
+    });
     res.json({ message: "Product updated successfully", product });
   } catch (error) {
     console.error("Error updating product:", error);
