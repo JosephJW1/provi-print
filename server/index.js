@@ -8,6 +8,9 @@ const db = require("./models");
 
 const app = express();
 
+// Trust first reverse proxy hop (Google Cloud Run / Cloudflare) so rate limiters and secure cookies see real client IPs/HTTPS
+app.set("trust proxy", 1);
+
 // Hide Express server signature and apply standard security headers
 app.disable("x-powered-by");
 app.use(
@@ -95,7 +98,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 db.sequelize
   .sync()
@@ -103,9 +106,26 @@ db.sequelize
     if (db.Design && process.env.NODE_ENV !== "production") {
       await db.Design.sync({ alter: true });
     }
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
+
+    // Graceful shutdown for Google Cloud Run container scale-down (SIGTERM)
+    const shutdown = (signal) => {
+      console.log(`Received ${signal}. Closing HTTP server and DB pool...`);
+      server.close(async () => {
+        try {
+          await db.sequelize.close();
+          process.exit(0);
+        } catch (err) {
+          console.error("Error closing database connection:", err);
+          process.exit(1);
+        }
+      });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   })
   .catch((err) => {
     console.error("Failed to sync database:", err);

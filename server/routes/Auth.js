@@ -14,12 +14,19 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
   BCRYPT_ROUNDS
 );
 
-const getCookieOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
-  path: '/',
-});
+const getCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  // Default to 'none' in production so cross-domain (.pages.dev <-> .run.app) cookies work over HTTPS;
+  // set COOKIE_SAMESITE=strict once both frontend and API share the same root custom domain.
+  const sameSite = process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'strict');
+  return {
+    httpOnly: true,
+    secure: isProd || sameSite === 'none',
+    sameSite,
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+    path: '/',
+  };
+};
 
 const getCookieName = (req) =>
   req.headers['x-portal'] === 'admin' ? 'adminAccessToken' : 'accessToken';
